@@ -32,8 +32,9 @@
 *.out
 *.app
 
+.*
 
-# CMakeCache.txt
+CMakeCache.txt
 CMakeFiles
 CMakeScripts
 Testing
