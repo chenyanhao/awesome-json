@@ -5,6 +5,7 @@
 #include "awesomejson.h"
 
 #include <assert.h>
+#include <stdlib.h>
 
 #define EXPECT(c, ch) do { assert(*c->json == (ch)); c->json++; } while(0)
 
@@ -73,6 +74,17 @@ PRIVATE int parse_false(awesome_context *c, awesome_value *v) {
     return AS_PARSE_OK;
 }
 
+PRIVATE int parse_number(awesome_context *c, awesome_value *v) {
+    char *end;
+    v->n = strtod(c->json, &end);
+    if (c->json == end) {
+        return AS_PARSE_INVALID_VALUE;
+    }
+    c->json = end;
+    v->type = AS_NUMBER;
+    return AS_PARSE_OK;
+}
+
 /**
  *
  * @param c : json to be parsed
@@ -84,8 +96,8 @@ PRIVATE int parse_value(awesome_context *c, awesome_value *v) {
         case 'n': return parse_null(c, v);
         case 't': return parse_true(c, v);
         case 'f': return parse_false(c, v);
+        default: return parse_number(c, v);
         case '\0': return AS_PARSE_EXPECT_VALUE;
-        default: return AS_PARSE_INVALID_VALUE;
     }
 }
 
@@ -101,6 +113,7 @@ int parse(awesome_value *v, const char *json) {
     if ((ret = parse_value(&c, v)) == AS_PARSE_OK) {
         parse_whitespace(&c);
         if (*c.json != '\0') {
+            v->type = AS_NULL;
             ret = AS_PARSE_ROOT_NOT_SINGULAR;
         }
     }
@@ -113,6 +126,10 @@ awesome_type get_type(const awesome_value *v) {
     return v->type;
 }
 
+double get_number(const awesome_value *v) {
+    assert(v != NULL && v->type == AS_NUMBER);
+    return v->n;
+}
 
 
 
