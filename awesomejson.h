@@ -30,10 +30,10 @@ enum {
     AS_PARSE_NUMBER_TOO_BIG
 };
 
-int parse(awesome_value *v, const char *json);
+int as_parse(awesome_value *v, const char *json);
 
-awesome_type get_type(const awesome_value *v);
+awesome_type as_get_type(const awesome_value *v);
 
-double get_number(const awesome_value *v);
+double as_get_number(const awesome_value *v);
 
 #endif //AWESOME_JSON_AWESOMEJSON_H

@@ -4,10 +4,16 @@
 
 #include "awesomejson.h"
 
-#include <assert.h>
-#include <stdlib.h>
+#include <assert.h> /* assert() */
+#include <errno.h> /* errno, ERANGE */
+#include <math.h> /* HUGE_VAL */
+#include <stdlib.h> /* NULL, strtod() */
 
 #define EXPECT(c, ch) do { assert(*c->json == (ch)); c->json++; } while(0)
+
+#define ISDIGIT(ch) ((ch) >= '0' && (ch) <= '9')
+
+#define ISDIGIT1TO9(ch) ((ch) >= '1' && (ch) <= '9')
 
 typedef struct {
     const char *json;
@@ -28,60 +34,66 @@ PRIVATE void parse_whitespace(awesome_context *c) {
     c->json = j;
 }
 
-/**
- * parse NULL value in json context c, and return parsing result(@see awesomejson.h)
- * @param c : json to be parsed
- * @param v :in and out param
- * @return
- */
-PRIVATE int parse_null(awesome_context *c, awesome_value *v) {
-    EXPECT(c, 'n');
-    if (c->json[0] != 'u' || c->json[1] != 'l' || c->json[2] !='l') {
-        return AS_PARSE_INVALID_VALUE;
+PRIVATE int as_parse_literal(awesome_context *c, awesome_value *v,
+                             const char *literal, awesome_type type) {
+    EXPECT(c, literal[0]);
+
+    size_t i;
+    for (i= 0; literal[i + 1] ; ++i) {
+        if (c->json[i] != literal[i + 1]) {
+            return AS_PARSE_INVALID_VALUE;
+        }
     }
 
-    c->json += 3;
-    v->type = AS_NULL;
-    return AS_PARSE_OK;
-}
-
-/**
- * parse TRUE value in json context c
- * @param c
- * @param v
- * @return
- */
-PRIVATE int parse_true(awesome_context *c, awesome_value *v) {
-    EXPECT(c, 't');
-    if (c->json[0] != 'r' || c->json[1] != 'u' || c->json[2] != 'e') {
-        return AS_PARSE_INVALID_VALUE;
-    }
-    c->json += 3;
-    v->type = AS_TRUE;
-    return AS_PARSE_OK;
-}
-
-PRIVATE int parse_false(awesome_context *c, awesome_value *v) {
-    EXPECT(c, 'f');
-    if (c->json[0] != 'a' ||
-            c->json[1] != 'l' ||
-            c->json[2] != 's' ||
-            c->json[3] != 'e') {
-        return AS_PARSE_INVALID_VALUE;
-    }
-    c->json += 4;
-    v->type = AS_FALSE;
+    c->json += i;
+    v->type = type;
     return AS_PARSE_OK;
 }
 
 PRIVATE int parse_number(awesome_context *c, awesome_value *v) {
-    char *end;
-    v->n = strtod(c->json, &end);
-    if (c->json == end) {
-        return AS_PARSE_INVALID_VALUE;
+    const char *p = c->json;
+
+    if (*p == '-') {
+        ++p;
     }
-    c->json = end;
+
+    if (*p == '0') {
+        ++p;
+    } else {
+        if (!ISDIGIT1TO9(*p)) {
+            return AS_PARSE_INVALID_VALUE;
+        }
+        for (p++; ISDIGIT(*p); ++p);
+    }
+
+    if (*p == '.') {
+        ++p;
+        if (!ISDIGIT(*p)) {
+            return AS_PARSE_INVALID_VALUE;
+        }
+        for (p++; ISDIGIT(*p); ++p);
+    }
+
+    if (*p == 'e' || *p == 'E') {
+        ++p;
+        if (*p == '+' || *p == '-') {
+            ++p;
+        }
+        if (!ISDIGIT(*p)) {
+            return AS_PARSE_INVALID_VALUE;
+        }
+        for (p++; ISDIGIT(*p); ++p);
+    }
+
+    errno = 0;
+    v->n = strtod(c->json, NULL);
+    if (errno == ERANGE && (v->n == HUGE_VAL || v->n == -HUGE_VAL)) {
+        return AS_PARSE_NUMBER_TOO_BIG;
+    }
+
     v->type = AS_NUMBER;
+    c->json = p;
+
     return AS_PARSE_OK;
 }
 
@@ -93,15 +105,15 @@ PRIVATE int parse_number(awesome_context *c, awesome_value *v) {
  */
 PRIVATE int parse_value(awesome_context *c, awesome_value *v) {
     switch (*c->json) {
-        case 'n': return parse_null(c, v);
-        case 't': return parse_true(c, v);
-        case 'f': return parse_false(c, v);
+        case 'n': return as_parse_literal(c, v, "null", AS_NULL);
+        case 't': return as_parse_literal(c, v, "true", AS_TRUE);
+        case 'f': return as_parse_literal(c, v, "false", AS_FALSE);
         default: return parse_number(c, v);
         case '\0': return AS_PARSE_EXPECT_VALUE;
     }
 }
 
-int parse(awesome_value *v, const char *json) {
+int as_parse(awesome_value *v, const char *json) {
     assert(v != NULL);
 
     awesome_context c;
@@ -121,12 +133,12 @@ int parse(awesome_value *v, const char *json) {
     return ret;
 }
 
-awesome_type get_type(const awesome_value *v) {
+awesome_type as_get_type(const awesome_value *v) {
     assert(v != NULL);
     return v->type;
 }
 
-double get_number(const awesome_value *v) {
+double as_get_number(const awesome_value *v) {
     assert(v != NULL && v->type == AS_NUMBER);
     return v->n;
 }
