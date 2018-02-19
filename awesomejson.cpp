@@ -50,22 +50,50 @@ PRIVATE int as_parse_literal(awesome_context *c, awesome_value *v,
     return AS_PARSE_OK;
 }
 
+/**
+ * [负号] 整数 [小数(点)] [指数]
+ *  number = [ "-" ] int [ frac ] [ exp ]
+ *  int = "0" / digit1-9 *digit
+ *  frac = "." 1*digit
+ *  exp = ("e" / "E") ["-" / "+"] 1*digit
+ *
+ * @param c
+ * @param v
+ * @return
+ */
 PRIVATE int parse_number(awesome_context *c, awesome_value *v) {
-    const char *p = c->json;
 
+    /**
+     * 下面步骤 1-5 是数字的合法性校验
+     */
+
+    const char *p = c->json;
+    /* 1. 负号直接跳过 */
     if (*p == '-') {
         ++p;
     }
 
+    /* 2. 整数部分有两种合法情况，一是单个 0，否则是一个 1-9 再加上任意数量的 digit。 */
     if (*p == '0') {
         ++p;
     } else {
         if (!ISDIGIT1TO9(*p)) {
             return AS_PARSE_INVALID_VALUE;
         }
+
+        /**
+         * 下面的 for 循环等价于如下代码，下同
+         *
+         *  p++;
+         *  while (ISDIGIT(*p)) {
+         *      p++;
+         *  }
+         *
+         */
         for (p++; ISDIGIT(*p); ++p);
     }
 
+    /* 3. 如果出现小数点，跳过，然后检查它至少应有一个 digit，不是 digit 就返回错误码 */
     if (*p == '.') {
         ++p;
         if (!ISDIGIT(*p)) {
@@ -74,6 +102,7 @@ PRIVATE int parse_number(awesome_context *c, awesome_value *v) {
         for (p++; ISDIGIT(*p); ++p);
     }
 
+    /* 4. 如果出现大小写 e，就表示有指数部分。跳过那个 e 之后，可以有一个正或负号，其他和小数的逻辑是一样的。 */
     if (*p == 'e' || *p == 'E') {
         ++p;
         if (*p == '+' || *p == '-') {
@@ -85,12 +114,14 @@ PRIVATE int parse_number(awesome_context *c, awesome_value *v) {
         for (p++; ISDIGIT(*p); ++p);
     }
 
+    /* 5. 数字过大的处理 */
     errno = 0;
     v->n = strtod(c->json, NULL);
     if (errno == ERANGE && (v->n == HUGE_VAL || v->n == -HUGE_VAL)) {
         return AS_PARSE_NUMBER_TOO_BIG;
     }
 
+    /* 至此，正确性校验通过，直接赋值即可 */
     v->type = AS_NUMBER;
     c->json = p;
 
