@@ -200,12 +200,23 @@ PRIVATE void test_access_null() {
 }
 
 PRIVATE void test_access_boolean() {
-    /* \TODO */
-    /* Use EXPECT_TRUE() and EXPECT_FALSE() */
+    awesome_value v;
+    as_init(&v);
+    as_set_string(&v, "a", 1);
+    as_set_boolean(&v, 1);
+    EXPECT_TRUE(as_get_boolean(&v));
+    as_set_boolean(&v, 0);
+    EXPECT_FALSE(as_get_boolean(&v));
+    as_free(&v);
 }
 
 PRIVATE void test_access_number() {
-    /* \TODO */
+    awesome_value v;
+    as_init(&v);
+    as_set_string(&v, "a", 1);
+    as_set_number(&v, 1234.5);
+    EXPECT_EQ_DOUBLE(1234.5, as_get_number(&v));
+    as_free(&v);
 }
 
 PRIVATE void test_access_string() {

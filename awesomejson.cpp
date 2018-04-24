@@ -194,10 +194,30 @@ PRIVATE int as_parse_string(awesome_context *c, awesome_value *v) {
                 as_set_string(v, (const char *)as_context_pop(c, len), len);
                 c->json = p;
                 return AS_PARSE_OK;
+
+            case '\\':
+                switch (*p++) {
+                    case '\"': PUTC(c, '\"'); break;
+                    case '\\': PUTC(c, '\\'); break;
+                    case '/':  PUTC(c, '/' ); break;
+                    case 'b':  PUTC(c, '\b'); break;
+                    case 'f':  PUTC(c, '\f'); break;
+                    case 'n':  PUTC(c, '\n'); break;
+                    case 'r':  PUTC(c, '\r'); break;
+                    case 't':  PUTC(c, '\t'); break;
+                    default:
+                        c->top = head;
+                        return AS_PARSE_INVALID_STRING_ESCAPE;
+                }
+                break;
             case '\0':
                 c->top = head;
                 return AS_PARSE_MISS_QUOTATION_MARK;
             default:
+                if ((unsigned char)ch < 0x20) {
+                    c->top = head;
+                    return AS_PARSE_INVALID_STRING_CHAR;
+                }
                 PUTC(c, ch);
         }
     }
@@ -264,12 +284,13 @@ awesome_type as_get_type(const awesome_value *v) {
 
 
 int as_get_boolean(const awesome_value *v) {
-    /* \TODO */
-    return 0;
+    assert(v != NULL && (v->type == AS_TRUE || v->type == AS_FALSE));
+    return v->type == AS_TRUE;
 }
 
 void as_set_boolean(awesome_value *v, int b) {
-    /* \TODO */
+    as_free(v);
+    v->type = b ? AS_TRUE : AS_FALSE;
 }
 
 double as_get_number(const awesome_value *v) {
@@ -278,7 +299,9 @@ double as_get_number(const awesome_value *v) {
 }
 
 void as_set_number(awesome_value *v, double n) {
-    /* \TODO */
+    as_free(v);
+    v->u.n = n;
+    v->type = AS_NUMBER;
 }
 
 const char * as_get_string(const awesome_value *v) {
