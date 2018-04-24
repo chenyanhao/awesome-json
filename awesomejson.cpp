@@ -286,6 +286,11 @@ const char * as_get_string(const awesome_value *v) {
     return v->u.s.s;
 }
 
+size_t as_get_string_length(const awesome_value* v) {
+    assert(v != NULL && v->type == AS_STRING);
+    return v->u.s.len;
+}
+
 void as_set_string(awesome_value *v, const char *s, size_t len) {
     assert(v != NULL && (s != NULL || len ==0));
     as_free(v);
